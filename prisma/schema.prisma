@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
+enum EventType {
+  WEDDING
+  CORPORATE
+  BIRTHDAY
+  UNIVERSITY
+  NIGHTCLUB
+  FESTIVAL
+  OTHER
+}
+
+enum ProposalStatus {
+  NEW
+  AI_ANALYZED
+  RESPONDED
+  NEGOTIATING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO_URL
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  slug         String    @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  profile      DjProfile?
+  subscription Subscription?
+  proposals    Proposal[]
+  aiConfig     AiConfig?
+  mediaItems   MediaItem[]
+  socialLinks  SocialLink[]
+
+  @@index([slug])
+  @@index([email])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+
+  status               SubscriptionStatus @default(TRIALING)
+
+  trialStartsAt        DateTime           @default(now())
+  trialEndsAt          DateTime
+
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+}
+
+model DjProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  artistName       String
+  tagline          String?
+  bio              String?
+  avatarUrl        String?
+
+  accentColor      String   @default("#00FF87")
+  isPublished      Boolean  @default(false)
+
+  totalShows       Int?
+  yearsExperience  Int?
+  citiesCovered    Int?
+
+  whatsappNumber   String?
+  baseCity         String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model SocialLink {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform String
+  url      String
+  order    Int    @default(0)
+
+  @@index([userId])
+}
+
+model MediaItem {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type         MediaType
+  url          String
+  thumbnailUrl String?
+  caption      String?
+  order        Int       @default(0)
+  isVisible    Boolean   @default(true)
+
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Proposal {
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  clientName     String
+  clientEmail    String
+  clientPhone    String?
+  eventType      EventType      @default(OTHER)
+  eventDate      DateTime?
+  eventCity      String?
+  eventVenue     String?
+  guestCount     Int?
+  durationHours  Float?
+  suggestedFee   Float?
+  message        String
+
+  status         ProposalStatus @default(NEW)
+  isRead         Boolean        @default(false)
+
+  aiAnalysis     String?
+  aiAnalyzedAt   DateTime?
+  aiScore        Int?
+
+  djNotes        String?
+  respondedAt    DateTime?
+
+  emailSentToDj  Boolean        @default(false)
+  emailSentAt    DateTime?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([userId, isRead])
+}
+
+model AiConfig {
+  id                  String      @id @default(cuid())
+  userId              String      @unique
+  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  minimumFee          Float?
+  preferredFee        Float?
+
+  baseCityLat         Float?
+  baseCityLng         Float?
+  maxDistanceKm       Int?
+  distanceFeePerKm    Float?
+
+  hasOwnEquipment     Boolean     @default(true)
+  equipmentNotes      String?
+
+  preferredEventTypes EventType[]
+  avoidEventTypes     EventType[]
+
+  customInstructions  String?
+
+  updatedAt           DateTime    @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
