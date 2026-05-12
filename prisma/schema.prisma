@@ -1,43 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-}
-
-enum SubscriptionStatus {
-  TRIALING
-  ACTIVE
-  PAST_DUE
-  CANCELED
-  INCOMPLETE
-}
-
-enum EventType {
-  WEDDING
-  CORPORATE
-  BIRTHDAY
-  UNIVERSITY
-  NIGHTCLUB
-  FESTIVAL
-  OTHER
-}
-
-enum ProposalStatus {
-  NEW
-  AI_ANALYZED
-  RESPONDED
-  NEGOTIATING
-  ACCEPTED
-  REJECTED
-  EXPIRED
-}
-
-enum MediaType {
-  PHOTO
-  VIDEO_URL
 }
 
 model User {
@@ -61,54 +29,51 @@ model User {
 }
 
 model Subscription {
-  id                   String             @id @default(cuid())
-  userId               String             @unique
-  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  stripeCustomerId     String?            @unique
-  stripeSubscriptionId String?            @unique
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
   stripePriceId        String?
 
-  status               SubscriptionStatus @default(TRIALING)
+  status               String   @default("TRIALING")
 
-  trialStartsAt        DateTime           @default(now())
+  trialStartsAt        DateTime @default(now())
   trialEndsAt          DateTime
 
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
 
-  cancelAtPeriodEnd    Boolean            @default(false)
+  cancelAtPeriodEnd    Boolean  @default(false)
   canceledAt           DateTime?
 
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-
-  @@index([stripeCustomerId])
-  @@index([stripeSubscriptionId])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model DjProfile {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  artistName       String
-  tagline          String?
-  bio              String?
-  avatarUrl        String?
+  artistName      String
+  tagline         String?
+  bio             String?
+  avatarUrl       String?
 
-  accentColor      String   @default("#00FF87")
-  isPublished      Boolean  @default(false)
+  accentColor     String   @default("#00FF87")
+  isPublished     Boolean  @default(false)
 
-  totalShows       Int?
-  yearsExperience  Int?
-  citiesCovered    Int?
+  totalShows      Int?
+  yearsExperience Int?
+  citiesCovered   Int?
 
-  whatsappNumber   String?
-  baseCity         String?
+  whatsappNumber  String?
+  baseCity        String?
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model SocialLink {
@@ -123,93 +88,86 @@ model SocialLink {
 }
 
 model MediaItem {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type         MediaType
+  type         String   @default("PHOTO")
   url          String
   thumbnailUrl String?
   caption      String?
-  order        Int       @default(0)
-  isVisible    Boolean   @default(true)
+  order        Int      @default(0)
+  isVisible    Boolean  @default(true)
 
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime @default(now())
 
   @@index([userId])
 }
 
 model Proposal {
-  id             String         @id @default(cuid())
-  userId         String
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  clientName     String
-  clientEmail    String
-  clientPhone    String?
-  eventType      EventType      @default(OTHER)
-  eventDate      DateTime?
-  eventCity      String?
-  eventVenue     String?
-  guestCount     Int?
-  durationHours  Float?
-  suggestedFee   Float?
-  message        String
+  clientName    String
+  clientEmail   String
+  clientPhone   String?
+  eventType     String    @default("OTHER")
+  eventDate     DateTime?
+  eventCity     String?
+  eventVenue    String?
+  guestCount    Int?
+  durationHours Float?
+  suggestedFee  Float?
+  message       String
 
-  status         ProposalStatus @default(NEW)
-  isRead         Boolean        @default(false)
+  status        String    @default("NEW")
+  isRead        Boolean   @default(false)
 
-  aiAnalysis     String?
-  aiAnalyzedAt   DateTime?
-  aiScore        Int?
+  aiAnalysis    String?
+  aiAnalyzedAt  DateTime?
+  aiScore       Int?
 
-  djNotes        String?
-  respondedAt    DateTime?
+  djNotes       String?
+  respondedAt   DateTime?
 
-  emailSentToDj  Boolean        @default(false)
-  emailSentAt    DateTime?
+  emailSentToDj Boolean   @default(false)
+  emailSentAt   DateTime?
 
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  @@index([userId, status])
-  @@index([userId, createdAt])
-  @@index([userId, isRead])
+  @@index([userId])
 }
 
 model AiConfig {
-  id                  String      @id @default(cuid())
-  userId              String      @unique
-  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  minimumFee          Float?
-  preferredFee        Float?
+  minimumFee         Float?
+  preferredFee       Float?
 
-  baseCityLat         Float?
-  baseCityLng         Float?
-  maxDistanceKm       Int?
-  distanceFeePerKm    Float?
+  baseCityLat        Float?
+  baseCityLng        Float?
+  maxDistanceKm      Int?
+  distanceFeePerKm   Float?
 
-  hasOwnEquipment     Boolean     @default(true)
-  equipmentNotes      String?
+  hasOwnEquipment    Boolean  @default(true)
+  equipmentNotes     String?
+  customInstructions String?
 
-  preferredEventTypes EventType[]
-  avoidEventTypes     EventType[]
-
-  customInstructions  String?
-
-  updatedAt           DateTime    @updatedAt
+  updatedAt          DateTime @updatedAt
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
   action    String
-  metadata  Json?
+  metadata  String?
   ip        String?
   createdAt DateTime @default(now())
 
   @@index([userId])
-  @@index([action])
   @@index([createdAt])
 }
