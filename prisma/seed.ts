@@ -4,8 +4,6 @@ import { hash } from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding...");
-
   const passwordHash = await hash("demo1234", 12);
   const trialEndsAt = new Date();
   trialEndsAt.setDate(trialEndsAt.getDate() + 7);
@@ -63,26 +61,21 @@ async function main() {
   });
 
   await prisma.proposal.createMany({
-    data: [
-      {
-        userId: user.id,
-        clientName: "Mariana Costa",
-        clientEmail: "mariana@exemplo.com",
-        eventType: "WEDDING",
-        eventCity: "São Paulo, SP",
-        guestCount: 180,
-        suggestedFee: 2800,
-        message: "Casamento em agosto, 6 horas de festa.",
-        status: "NEW",
-      },
-    ],
+    data: [{
+      userId: user.id,
+      clientName: "Mariana Costa",
+      clientEmail: "mariana@exemplo.com",
+      eventType: "WEDDING",
+      eventCity: "São Paulo, SP",
+      guestCount: 180,
+      suggestedFee: 2800,
+      message: "Casamento em agosto, 6 horas de festa.",
+      status: "NEW",
+    }],
     skipDuplicates: true,
   });
 
-  console.log("Seed concluído!");
-  console.log("Login: djkauan@demo.com / demo1234");
+  console.log("Seed OK! Login: djkauan@demo.com / demo1234");
 }
 
-main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+main().catch(console.error).finally(() => prisma.$disconnect());
