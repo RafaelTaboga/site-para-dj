@@ -4,16 +4,17 @@ import { prisma } from "@/lib/prisma";
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
-  const links = await req.json(); // [{platform, url, order}]
+  const userId = session.user.id as string;
+  const links = await req.json();
 
-  await prisma.socialLink.deleteMany({ where: { userId: session.user.id } });
+  await prisma.socialLink.deleteMany({ where: { userId } });
 
   if (links.length > 0) {
     await prisma.socialLink.createMany({
       data: links.map((l: any, i: number) => ({
-        userId: session.user.id,
+        userId,
         platform: l.platform,
         url: l.url,
         order: i,
