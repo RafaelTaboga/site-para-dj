@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { openai } from "@/lib/openai";
-import { EVENT_TYPE_LABELS, formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, EVENT_TYPE_LABELS } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -24,38 +24,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Proposta não encontrada" }, { status: 404 });
   }
 
-  const systemPrompt = `Você é uma secretária executiva especializada em agenciamento de DJs e produtores de eventos.
-Seu trabalho é analisar propostas de eventos recebidas e dar uma recomendação objetiva, prática e direta ao DJ.
-Use R$ para valores. Seja assertiva. Formate a resposta em Markdown com as seções abaixo.
+  const systemPrompt = `Você é uma secretária executiva especializada em agenciamento de DJs.
+Analise propostas e dê recomendações objetivas. Use R$ para valores.
+Formate com as seções: ## Veredicto, ## Análise Financeira, ## Pontos de Atenção, ## Sugestão de Resposta ao Cliente
 
-**Parâmetros do DJ "${profile?.artistName ?? "DJ"}":**
+Parâmetros do DJ "${profile?.artistName ?? "DJ"}":
 - Cachê mínimo: ${aiConfig?.minimumFee ? formatCurrency(aiConfig.minimumFee) : "Não definido"}
 - Cachê ideal: ${aiConfig?.preferredFee ? formatCurrency(aiConfig.preferredFee) : "Não definido"}
-- Cidade base: ${profile?.baseCity ?? "Não definida"}
-- Distância máxima sem taxa extra: ${aiConfig?.maxDistanceKm ?? "Não definido"} km
+- Distância máxima sem taxa: ${aiConfig?.maxDistanceKm ?? "Não definido"} km
 - Taxa de deslocamento: ${aiConfig?.distanceFeePerKm ? `R$ ${aiConfig.distanceFeePerKm}/km` : "Não definida"}
-- Tem equipamento próprio: ${aiConfig?.hasOwnEquipment ? "Sim" : "Não"}
-- Notas sobre equipamento: ${aiConfig?.equipmentNotes ?? "Nenhuma"}
-- Tipos de evento preferidos: ${aiConfig?.preferredEventTypes?.map(t => EVENT_TYPE_LABELS[t]).join(", ") || "Todos"}
-- Tipos a evitar: ${aiConfig?.avoidEventTypes?.map(t => EVENT_TYPE_LABELS[t]).join(", ") || "Nenhum"}
-- Instruções especiais: ${aiConfig?.customInstructions ?? "Nenhuma"}
-
-**Estrutura obrigatória da resposta (use exatamente estes títulos):**
-## Veredicto
-## Análise Financeira
-## Pontos de Atenção
-## Sugestão de Resposta ao Cliente`;
+- Equipamento próprio: ${aiConfig?.hasOwnEquipment ? "Sim" : "Não"}
+- Instruções especiais: ${aiConfig?.customInstructions ?? "Nenhuma"}`;
 
   const userMessage = `Analise esta proposta:
-
-**Cliente:** ${proposal.clientName} (${proposal.clientEmail}${proposal.clientPhone ? ` · ${proposal.clientPhone}` : ""})
-**Tipo de Evento:** ${EVENT_TYPE_LABELS[proposal.eventType]}
-**Data:** ${proposal.eventDate ? formatDate(proposal.eventDate) : "Não informada"}
-**Cidade/Local:** ${proposal.eventCity ?? "Não informada"}${proposal.eventVenue ? ` — ${proposal.eventVenue}` : ""}
-**Nº de Convidados:** ${proposal.guestCount ?? "Não informado"}
-**Duração Estimada:** ${proposal.durationHours ? `${proposal.durationHours}h` : "Não informada"}
-**Cachê Sugerido pelo Cliente:** ${proposal.suggestedFee ? formatCurrency(proposal.suggestedFee) : "Não informado"}
-**Mensagem:** "${proposal.message}"`;
+- Cliente: ${proposal.clientName}
+- Tipo: ${EVENT_TYPE_LABELS[proposal.eventType] ?? proposal.eventType}
+- Data: ${proposal.eventDate ? formatDate(proposal.eventDate) : "Não informada"}
+- Cidade: ${proposal.eventCity ?? "Não informada"}
+- Convidados: ${proposal.guestCount ?? "Não informado"}
+- Cachê sugerido: ${proposal.suggestedFee ? formatCurrency(proposal.suggestedFee) : "Não informado"}
+- Mensagem: "${proposal.message}"`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -64,14 +52,9 @@ Use R$ para valores. Seja assertiva. Formate a resposta em Markdown com as seç�
       { role: "user", content: userMessage },
     ],
     max_tokens: 900,
-    temperature: 0.7,
   });
 
   const analysis = response.choices[0].message.content!;
-
-  const isPositive = analysis.toLowerCase().includes("vale a pena") ||
-    analysis.toLowerCase().includes("boa proposta") ||
-    analysis.toLowerCase().includes("recomendo aceitar");
 
   await prisma.proposal.update({
     where: { id: proposalId },
@@ -79,15 +62,6 @@ Use R$ para valores. Seja assertiva. Formate a resposta em Markdown com as seç�
       aiAnalysis: analysis,
       aiAnalyzedAt: new Date(),
       status: "AI_ANALYZED",
-      aiScore: isPositive ? 75 : 35,
-    },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.user.id,
-      action: "AI_ANALYSIS_RUN",
-      metadata: { proposalId },
     },
   });
 

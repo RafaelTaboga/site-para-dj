@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err) {
-    console.error("Webhook signature failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -24,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      const session = event.data.object as Stripe.CheckoutSession;
+      const session = event.data.object as Stripe.Checkout.Session;
       const userId = getUserId(session);
       if (!userId || !session.subscription) break;
 
@@ -42,14 +41,9 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Publish DJ site when subscription is active
       await prisma.djProfile.update({
         where: { userId },
         data: { isPublished: true },
-      });
-
-      await prisma.auditLog.create({
-        data: { userId, action: "SUBSCRIPTION_ACTIVATED", metadata: { stripeSubId: session.subscription } },
       });
       break;
     }
@@ -76,7 +70,6 @@ export async function POST(req: NextRequest) {
       const sub = await stripe.subscriptions.retrieve(invoice.subscription as string);
       const userId = getUserId(sub);
       if (!userId) break;
-
       await prisma.subscription.update({
         where: { userId },
         data: { status: "PAST_DUE" },
@@ -88,7 +81,6 @@ export async function POST(req: NextRequest) {
       const sub = event.data.object as Stripe.Subscription;
       const userId = getUserId(sub);
       if (!userId) break;
-
       await prisma.subscription.update({
         where: { userId },
         data: { status: "CANCELED", canceledAt: new Date() },
@@ -96,23 +88,6 @@ export async function POST(req: NextRequest) {
       await prisma.djProfile.update({
         where: { userId },
         data: { isPublished: false },
-      });
-      break;
-    }
-
-    case "customer.subscription.updated": {
-      const sub = event.data.object as Stripe.Subscription;
-      const userId = getUserId(sub);
-      if (!userId) break;
-
-      await prisma.subscription.update({
-        where: { userId },
-        data: {
-          status: sub.status === "active" ? "ACTIVE" : "PAST_DUE",
-          cancelAtPeriodEnd: sub.cancel_at_period_end,
-          currentPeriodStart: new Date(sub.current_period_start * 1000),
-          currentPeriodEnd: new Date(sub.current_period_end * 1000),
-        },
       });
       break;
     }
